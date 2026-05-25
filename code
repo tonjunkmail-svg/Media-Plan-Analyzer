@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Plan Builder</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundled.js"></script>
+<style>
+:root {
+  --primary: #1a1a2e; --secondary: #16213e; --accent: #0f3460;
+  --highlight: #e94560; --gold: #f5a623; --green: #27ae60;
+  --blue: #2980b9; --teal: #1abc9c; --purple: #8e44ad;
+  --bg: #f0f2f5; --card: #ffffff; --text: #2c3e50;
+  --text-light: #7f8c8d; --border: #e0e4e8;
+  --shadow: 0 2px 16px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ---- Header ---- */
+.app-header { background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%); color: white; padding: 18px 40px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.app-header h1 { font-size: 1.4rem; font-weight: 800; }
+.app-header h1 span { color: var(--gold); }
+.header-sub { font-size: 0.78rem; opacity: 0.65; margin-top: 2px; }
+.header-actions { display: flex; gap: 10px; align-items: center; }
+.btn-xl { padding: 10px 22px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.88rem; font-weight: 700; transition: all 0.2s; }
+.btn-excel { background: #1e7e34; color: white; }
+.btn-excel:hover { background: #155724; transform: translateY(-1px); }
+.btn-ppt { background: #c0392b; color: white; }
+.btn-ppt:hover { background: #922b21; transform: translateY(-1px); }
+.btn-reset { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3) !important; }
+.btn-reset:hover { background: rgba(255,255,255,0.25); }
+
+/* ---- Steps bar ---- */
+.steps-bar { background: var(--secondary); padding: 0 40px; display: flex; gap: 0; overflow-x: auto; }
+.step-btn { background: none; border: none; color: rgba(255,255,255,0.5); padding: 13px 20px; cursor: pointer; font-size: 0.83rem; font-weight: 600; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.step-btn:hover { color: white; }
+.step-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.step-num { background: rgba(255,255,255,0.15); border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800; }
+.step-btn.active .step-num { background: var(--gold); color: var(--primary); }
+.step-btn.done .step-num { background: var(--green); color: white; }
+.step-btn.done { color: rgba(255,255,255,0.7); }
+
+/* ---- Layout ---- */
+.main { display: grid; grid-template-columns: 300px 1fr; gap: 0; min-height: calc(100vh - 120px); }
+.sidebar { background: white; border-right: 1px solid var(--border); padding: 24px 20px; overflow-y: auto; position: sticky; top: 0; max-height: calc(100vh - 120px); }
+.content { padding: 28px 36px; overflow-y: auto; }
+
+/* ---- Sidebar ---- */
+.sidebar-title { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-light); margin-bottom: 12px; margin-top: 18px; }
+.sidebar-title:first-child { margin-top: 0; }
+.sidebar-stat { margin-bottom: 10px; }
+.sidebar-stat .label { font-size: 0.75rem; color: var(--text-light); font-weight: 600; }
+.sidebar-stat .value { font-size: 1.1rem; font-weight: 800; color: var(--primary); }
+.sidebar-stat .sub { font-size: 0.72rem; color: var(--text-light); }
+.budget-remaining { background: var(--bg); border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+.budget-remaining .lbl { font-size: 0.72rem; color: var(--text-light); font-weight: 700; text-transform: uppercase; margin-bottom: 3px; }
+.budget-remaining .amt { font-size: 1.4rem; font-weight: 800; }
+.budget-remaining .track { height: 6px; background: #e0e4e8; border-radius: 3px; margin-top: 6px; overflow: hidden; }
+.budget-remaining .fill { height: 100%; border-radius: 3px; background: var(--green); transition: width 0.4s; }
+.channel-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 3px 9px; font-size: 0.72rem; font-weight: 700; margin: 2px; }
+.reach-summary { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; border-radius: 10px; padding: 14px; margin-top: 4px; }
+.reach-summary .r-lbl { font-size: 0.7rem; opacity: 0.65; font-weight: 600; text-transform: uppercase; }
+.reach-summary .r-val { font-size: 1.3rem; font-weight: 800; margin-top: 1px; }
+.chart-donut { width: 200px; height: 200px; margin: 0 auto 12px; }
+
+/* ---- Cards ---- */
+.card { background: var(--card); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; border: 1px solid var(--border); }
+.card-title { font-size: 1rem; font-weight: 800; color: var(--primary); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.card-sub { font-size: 0.82rem; color: var(--text-light); margin-bottom: 18px; }
+
+/* ---- Forms ---- */
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 0.9rem; color: var(--text); font-family: inherit; transition: border 0.2s; background: white;
+}
+.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15,52,96,0.08); }
+
+/* ---- Channel selector ---- */
+.channel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+.ch-card { border: 2px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer; transition: all 0.2s; text-align: center; user-select: none; }
+.ch-card:hover { border-color: var(--accent); background: #f0f4f8; }
+.ch-card.selected { border-color: var(--accent); background: #eef3fa; }
+.ch-card .ch-icon { font-size: 1.6rem; display: block; margin-bottom: 4px; }
+.ch-card .ch-name { font-size: 0.8rem; font-weight: 700; color: var(--primary); }
+.ch-card .ch-tag { font-size: 0.65rem; color: var(--text-light); margin-top: 2px; }
+
+/* ---- Budget sliders ---- */
+.slider-row { display: grid; grid-template-columns: 120px 1fr 80px 90px; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bg); }
+.slider-row:last-child { border-bottom: none; }
+.slider-ch-name { font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.slider-wrap input[type=range] { width: 100%; height: 6px; border: none; background: transparent; cursor: pointer; }
+.slider-pct { font-size: 0.85rem; font-weight: 700; text-align: right; color: var(--accent); }
+.slider-amt { font-size: 0.82rem; color: var(--text-light); text-align: right; }
+input[type=range] { -webkit-appearance: none; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--val,50%), #e0e4e8 var(--val,50%)); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); margin-top: -5px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.btn-recommend { background: linear-gradient(135deg, var(--accent), var(--highlight)); color: white; border: none; padding: 9px 20px; border-radius: 8px; cursor: pointer; font-size: 0.83rem; font-weight: 700; transition: all 0.2s; }
+.btn-recommend:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(233,69,96,0.3); }
+
+/* ---- Flighting calendar ---- */
+.flight-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.flight-table th { background: var(--primary); color: white; padding: 8px 6px; text-align: center; font-size: 0.72rem; font-weight: 700; min-width: 44px; }
+.flight-table th.ch-col { text-align: left; min-width: 110px; padding-left: 12px; }
+.flight-table td { border: 1px solid var(--border); padding: 0; height: 38px; }
+.flight-table td.ch-label { padding: 0 12px; font-weight: 700; font-size: 0.82rem; background: #f8f9fa; }
+.flight-cell { width: 100%; height: 100%; cursor: pointer; transition: background 0.15s; border-radius: 0; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 700; color: white; }
+.flight-cell:hover { filter: brightness(1.1); }
+.pattern-btns { display: flex; gap: 4px; margin-left: 8px; }
+.pat-btn { font-size: 0.62rem; padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; background: white; font-weight: 700; color: var(--text-light); transition: all 0.15s; }
+.pat-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+.week-total { font-size: 0.7rem; color: var(--text-light); font-weight: 700; text-align: center; padding: 4px; background: #f8f9fa; }
+
+/* ---- Projections ---- */
+.proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.proj-card { background: var(--bg); border-radius: 10px; padding: 16px; border: 1px solid var(--border); }
+.proj-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.proj-ch-icon { font-size: 1.3rem; }
+.proj-ch-name { font-size: 0.85rem; font-weight: 800; color: var(--primary); }
+.proj-ch-budget { font-size: 0.75rem; color: var(--text-light); }
+.proj-metric { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+.proj-metric:last-child { border-bottom: none; }
+.proj-metric .m-label { color: var(--text-light); }
+.proj-metric .m-value { font-weight: 700; color: var(--accent); }
+
+/* ---- KPI table ---- */
+.kpi-edit-table { width: 100%; border-collapse: collapse; }
+.kpi-edit-table th { background: var(--primary); color: white; padding: 9px 12px; text-align: left; font-size: 0.78rem; font-weight: 700; }
+.kpi-edit-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 0.85rem; vertical-align: middle; }
+.kpi-edit-table tr:last-child td { border-bottom: none; }
+.kpi-edit-table input { border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font-size: 0.83rem; width: 90px; text-align: right; }
+.kpi-edit-table input:focus { outline: none; border-color: var(--accent); }
+.bench-ref { font-size: 0.72rem; color: var(--text-light); display: block; margin-top: 2px; }
+
+/* ---- Summary ---- */
+.summary-hero { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; border-radius: 14px; padding: 28px; margin-bottom: 20px; }
+.summary-hero h2 { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
+.summary-hero .meta { font-size: 0.82rem; opacity: 0.65; margin-bottom: 20px; }
+.summary-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.summary-stat { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; }
+.summary-stat .s-val { font-size: 1.5rem; font-weight: 800; color: var(--gold); }
+.summary-stat .s-lbl { font-size: 0.72rem; opacity: 0.7; margin-top: 2px; }
+.channel-plan-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.channel-plan-row:last-child { border-bottom: none; }
+.cpr-icon { font-size: 1.3rem; width: 32px; }
+.cpr-name { flex: 1; font-weight: 700; font-size: 0.9rem; }
+.cpr-budget { font-size: 0.85rem; font-weight: 800; color: var(--accent); width: 120px; }
+.cpr-bar { flex: 2; }
+.cpr-bar-track { height: 6px; background: var(--bg); border-radius: 3px; }
+.cpr-bar-fill { height: 100%; border-radius: 3px; }
+.cpr-reach { font-size: 0.78rem; color: var(--text-light); width: 100px; text-align: right; }
+
+/* ---- Alert ---- */
+.alert { padding: 10px 14px; border-radius: 8px; font-size: 0.83rem; margin-bottom: 14px; display: flex; gap: 8px; align-items: flex-start; }
+.alert-info { background: #e8f4f8; border-left: 4px solid var(--blue); color: #1a5276; }
+.alert-success { background: #e8f8f5; border-left: 4px solid var(--teal); color: #1e8449; }
+.alert-warn { background: #fef9e7; border-left: 4px solid var(--gold); color: #7d6608; }
+
+/* ---- Section divider ---- */
+.section-step { display: none; }
+.section-step.active { display: block; }
+
+/* ---- Misc ---- */
+.tag-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.68rem; font-weight: 700; }
+.tag-awareness { background: #d6eaf8; color: #1a5276; }
+.tag-performance { background: #d5f5e3; color: #1e8449; }
+.tag-launch { background: #fdebd0; color: #935116; }
+@media (max-width: 900px) { .main { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+/* ---- Seasonality badges ---- */
+.season-badge { display:inline-block; font-size:0.52rem; font-weight:700; padding:1px 4px; border-radius:3px; margin-top:2px; white-space:nowrap; line-height:1.4; }
+.season-ipl { background:#e74c3c; color:white; }
+.season-diwali { background:#f5a623; color:#1a1a2e; }
+.season-eid { background:#27ae60; color:white; }
+.season-budget { background:#2980b9; color:white; }
+.season-republic { background:#1a1a2e; color:white; }
+.season-christmas { background:#c0392b; color:white; }
+.season-navratri { background:#8e44ad; color:white; }
+.season-exam { background:#7f8c8d; color:white; }
+.season-independence { background:#ff9800; color:#1a1a2e; }
+.flight-table th.has-season { background: #1a2d1a !important; }
+.flight-table th { vertical-align: top; }
+
+/* ---- Risk panel ---- */
+.risk-card { display:flex; gap:10px; align-items:flex-start; padding:10px 14px; border-radius:8px; margin-bottom:8px; border-left:4px solid; font-size:0.83rem; }
+.risk-card.risk-high { background:#fef0f0; border-color:#e74c3c; color:#922b21; }
+.risk-card.risk-medium { background:#fef9e7; border-color:#f5a623; color:#7d6608; }
+.risk-card.risk-ok { background:#e8f8f5; border-color:#27ae60; color:#1e8449; }
+.risk-card .risk-icon { font-size:1.1rem; flex-shrink:0; }
+.risk-card .risk-text strong { display:block; margin-bottom:2px; font-size:0.85rem; }
+
+/* ---- Memory panel ---- */
+.memory-panel { background:linear-gradient(135deg,#f8f9fa,#eef2f7); border-radius:10px; padding:12px; margin-top:4px; border:1px solid var(--border); }
+.memory-panel-title { font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-light); margin-bottom:8px; }
+.memory-item { display:flex; align-items:center; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--border); font-size:0.72rem; }
+.memory-item:last-child { border-bottom:none; }
+.memory-item .m-name { font-weight:700; color:var(--primary); font-size:0.75rem; }
+.memory-item .m-meta { color:var(--text-light); font-size:0.65rem; }
+.memory-load-btn { font-size:0.65rem; padding:2px 7px; background:var(--accent); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:700; white-space:nowrap; }
+.memory-load-btn:hover { background:var(--primary); }
+.btn-save { background:linear-gradient(135deg,var(--green),#1e8449); color:white; border:none; padding:11px 28px; border-radius:8px; cursor:pointer; font-size:0.9rem; font-weight:700; transition:all 0.2s; }
+.btn-save:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(39,174,96,0.3); }
+
+/* ---- Reach saturation curve ---- */
+.opt-spend-badge { display:inline-block; background:var(--gold); color:var(--primary); font-size:0.72rem; font-weight:800; padding:4px 10px; border-radius:5px; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="app-header">
+  <div>
+    <h1>📺 Media <span>Plan Builder</span></h1>
+    <div class="header-sub">Campaign Media Planning Tool · Budget Allocation · Flighting · Projections</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn-xl btn-reset" onclick="resetAll()">↺ Reset</button>
+    <button class="btn-xl btn-excel" onclick="exportExcel()">📊 Export Excel</button>
+    <button class="btn-xl btn-ppt" onclick="exportPPT()">🎞 Export PowerPoint</button>
+  </div>
+</div>
+
+<!-- STEPS BAR -->
+<div class="steps-bar">
+  <button class="step-btn active" onclick="goStep(1)" id="step-btn-1"><span class="step-num">1</span> Campaign Setup</button>
+  <button class="step-btn" onclick="goStep(2)" id="step-btn-2"><span class="step-num">2</span> Channel & Budget</button>
+  <button class="step-btn" onclick="goStep(3)" id="step-btn-3"><span class="step-num">3</span> Flighting Calendar</button>
+  <button class="step-btn" onclick="goStep(4)" id="step-btn-4"><span class="step-num">4</span> Projections & KPIs</button>
+  <button class="step-btn" onclick="goStep(5)" id="step-btn-5"><span class="step-num">5</span> Plan Summary</button>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-title">Plan Overview</div>
+    <div class="sidebar-stat"><div class="label">Campaign</div><div class="value" id="sb-name" style="font-size:0.9rem;">—</div></div>
+    <div class="sidebar-stat"><div class="label">Total Budget</div><div class="value" id="sb-budget">₹ —</div></div>
+    <div class="sidebar-stat"><div class="label">Duration</div><div class="value" id="sb-duration">— weeks</div></div>
+    <div class="sidebar-stat"><div class="label">Objective</div><div class="value" id="sb-obj" style="font-size:0.82rem;">—</div></div>
+
+    <div class="sidebar-title">Budget Allocation</div>
+    <div class="budget-remaining">
+      <div class="lbl">Allocated</div>
+      <div class="amt" id="sb-allocated">₹0</div>
+      <div class="track"><div class="fill" id="sb-alloc-fill" style="width:0%"></div></div>
+    </div>
+    <div style="margin-bottom:12px;"><canvas id="donut-chart" style="max-height:180px;"></canvas></div>
+    <div id="sb-channels"></div>
+
+    <div class="sidebar-title">Projected Reach</div>
+    <div class="reach-summary">
+      <div class="r-lbl">Est. Total Reach</div>
+      <div class="r-val" id="sb-reach">—</div>
+      <div class="r-lbl" style="margin-top:8px;">Est. Total Impressions</div>
+      <div class="r-val" id="sb-impr">—</div>
+    </div>
+
+    <div class="sidebar-title" style="margin-top:18px;">Brand Memory</div>
+    <div class="memory-panel">
+      <div class="memory-panel-title">Saved Plans</div>
+      <div id="memory-list"><div style="font-size:0.72rem;color:var(--text-light);">No saved plans yet.</div></div>
+    </div>
+  </div>
+
+  <!-- CONTENT AREA -->
+  <div class="content">
+
+    <!-- ====== STEP 1: CAMPAIGN SETUP ====== -->
+    <div class="section-step active" id="step-1">
+      <div class="card">
+        <div class="card-title">📋 Campaign Details</div>
+        <div class="card-sub">Enter the core parameters that will drive your media plan recommendations.</div>
+        <div class="form-grid-2">
+          <div class="form-group"><label>Campaign Name</label><input type="text" id="f_name" placeholder="e.g. Summer Sale 2026" oninput="updateSidebar()" /></div>
+          <div class="form-group"><label>Brand / Product</label><input type="text" id="f_brand" placeholder="Brand name" /></div>
+        </div>
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label>Campaign Objective</label>
+            <select id="f_objective" onchange="updateSidebar(); autoRecommend();">
+              <option value="">Select...</option>
+              <option value="awareness">Brand Awareness</option>
+              <option value="consideration">Brand Consideration</option>
+              <option value="performance">Performance / Conversion</option>
+              <option value="launch">Product Launch</option>
+              <option value="retention">Retention / Loyalty</option>
+              <option value="seasonal">Event / Seasonal</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Industry Vertical</label>
+            <select id="f_industry" onchange="autoRecommend()">
+              <option value="fmcg">FMCG / CPG</option>
+              <option value="retail">Retail / E-commerce</option>
+              <option value="finance">Banking / Finance</option>
+              <option value="telecom">Telecom</option>
+              <option value="auto">Automotive</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Total Budget (₹)</label>
+            <input type="number" id="f_budget" placeholder="e.g. 5000000" oninput="updateSidebar(); recalcAll();" />
+          </div>
+        </div>
+        <div class="form-grid-3">
+          <div class="form-group"><label>Start Date</label><input type="date" id="f_start" onchange="calcWeeks()" /></div>
+          <div class="form-group"><label>End Date</label><input type="date" id="f_end" onchange="calcWeeks()" /></div>
+          <div class="form-group"><label>Campaign Weeks</label><input type="number" id="f_weeks" min="1" max="52" value="8" oninput="updateSidebar(); renderFlighting();" /></div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group"><label>Primary Target Audience</label><input type="text" id="f_audience" placeholder="e.g. SEC A/B females 25-40, Tier 1 cities" /></div>
+          <div class="form-group"><label>Key Market / Geography</label><input type="text" id="f_geo" placeholder="e.g. Pan India, Tier 1 & 2" /></div>
+        </div>
+      </div>
+      <div style="text-align:right;"><button class="btn-recommend" onclick="goStep(2)">Next: Channel & Budget →</button></div>
+    </div>
+
+    <!-- ====== STEP 2: CHANNEL & BUDGET ====== -->
+    <div class="section-step" id="step-2">
+      <div class="card">
+        <div class="card-title">📺 Select Your Channels</div>
+        <div class="card-sub">Choose the channels for this campaign. Click to select/deselect.</div>
+        <div class="channel-grid">
+          <div class="ch-card selected" id="ch-card-digital" onclick="toggleChannel('digital')">
+            <span class="ch-icon">📱</span>
+            <div class="ch-name">Digital</div>
+            <div class="ch-tag">Social · Search · Display</div>
+          </div>
+          <div class="ch-card" id="ch-card-email" onclick="toggleChannel('email')">
+            <span class="ch-icon">📧</span>
+            <div class="ch-name">Email / CRM</div>
+            <div class="ch-tag">Owned database</div>
+          </div>
+          <div class="ch-card" id="ch-card-tv" onclick="toggleChannel('tv')">
+            <span class="ch-icon">📺</span>
+            <div class="ch-name">TV</div>
+            <div class="ch-tag">Free-to-air · Cable · CTV</div>
+          </div>
+          <div class="ch-card" id="ch-card-ooh" onclick="toggleChannel('ooh')">
+            <span class="ch-icon">🏙</span>
+            <div class="ch-name">OOH</div>
+            <div class="ch-tag">Billboards · Transit · Airport</div>
+          </div>
+          <div class="ch-card" id="ch-card-print" onclick="toggleChannel('print')">
+            <span class="ch-icon">📰</span>
+            <div class="ch-name">Print</div>
+            <div class="ch-tag">Newspaper · Magazine</div>
+          </div>
+          <div class="ch-card" id="ch-card-influencer" onclick="toggleChannel('influencer')">
+            <span class="ch-icon">🎙</span>
+            <div class="ch-name">Influencer</div>
+            <div class="ch-tag">Nano · Micro · Macro</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💰 Budget Allocation</div>
+        <div class="card-sub">Adjust sliders to allocate your total budget across channels. Click "Auto-Recommend" for a benchmark-based split.</div>
+        <div class="alert alert-info" id="budget-warn" style="display:none;"><span>⚠️</span><span>Budget allocation exceeds total budget. Adjust sliders.</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div style="font-size:0.82rem;color:var(--text-light);">Total Budget: <strong id="total-budget-display">—</strong></div>
+          <button class="btn-recommend" onclick="autoRecommend()">✨ Auto-Recommend Split</button>
+        </div>
+        <div id="slider-container"></div>
+        <div style="padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+          <div style="font-size:0.82rem;color:var(--text-light);">Remaining (unallocated)</div>
+          <div style="font-size:1rem;font-weight:800;" id="remaining-budget">—</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;"><button class="btn-recommend" style="background:var(--secondary);" onclick="goStep(1)">← Back</button><button class="btn-recommend" onclick="goStep(3)">Next: Flighting Calendar →</button></div>
+    </div>
+
+    <!-- ====== STEP 3: FLIGHTING CALENDAR ====== -->
+    <div class="section-step" id="step-3">
+      <div class="card">
+        <div class="card-title">📅 Flighting Calendar</div>
+        <div class="card-sub">Click cells to activate/deactivate each channel in each week. Use pattern buttons for quick setup. Spend is distributed equally across active weeks.</div>
+        <div class="alert alert-info"><span>💡</span><span><strong>Burst</strong> = first 2 weeks heavy · <strong>Pulse</strong> = alternate weeks · <strong>Always-on</strong> = all weeks active</span></div>
+        <div style="overflow-x:auto;">
+          <table class="flight-table" id="flight-table"></table>
+        </div>
+        <div id="week-spend-row" style="margin-top:8px;overflow-x:auto;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;"><button class="btn-recommend" style="background:var(--secondary);" onclick="goStep(2)">← Back</button><button class="btn-recommend" onclick="goStep(4); recalcAll();">Next: Projections & KPIs →</button></div>
+    </div>
+
+    <!-- ====== STEP 4: PROJECTIONS & KPIs ====== -->
+    <div class="section-step" id="step-4">
+      <div id="risk-panel"></div>
+      <div class="card">
+        <div class="card-title">📈 Reach & Frequency Projections</div>
+        <div class="card-sub">Estimates based on your budget allocation, industry benchmarks, and flighting pattern. Seasonal CPM adjustments applied where relevant.</div>
+        <div class="proj-grid" id="proj-grid"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📉 Reach Saturation Curve</div>
+        <div class="card-sub">Shows how incremental reach diminishes as spend increases. Your current spend is marked in red. Beyond the inflection point, each additional rupee delivers sharply diminishing reach.</div>
+        <div style="max-height:230px;"><canvas id="reach-curve-chart"></canvas></div>
+        <div id="opt-spend-info" style="margin-top:6px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🎯 KPI Targets by Channel</div>
+        <div class="card-sub">Review and adjust target KPIs. Benchmark values shown for reference.</div>
+        <table class="kpi-edit-table" id="kpi-table">
+          <thead><tr><th>Channel</th><th>KPI</th><th>Unit</th><th>Your Target</th><th>Benchmark</th></tr></thead>
+          <tbody id="kpi-tbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:space-between;"><button class="btn-recommend" style="background:var(--secondary);" onclick="goStep(3)">← Back</button><button class="btn-recommend" onclick="goStep(5)">Next: Plan Summary →</button></div>
+    </div>
+
+    <!-- ====== STEP 5: PLAN SUMMARY ====== -->
+    <div class="section-step" id="step-5">
+      <div id="summary-content"></div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;flex-wrap:wrap;">
+        <button class="btn-recommend" style="background:var(--secondary);" onclick="goStep(4)">← Back</button>
+        <button class="btn-save" onclick="saveCampaign()">💾 Save Campaign</button>
+        <button class="btn-xl btn-excel" onclick="exportExcel()" style="padding:11px 28px;">📊 Export as Excel</button>
+        <button class="btn-xl btn-ppt" onclick="exportPPT()" style="padding:11px 28px;">🎞 Export as PowerPoint</button>
+      </div>
+    </div>
+
+  </div><!-- end content -->
+</div><!-- end main -->
+
+<script>
+// ===================== STATE =====================
+const state = {
+  channels: ['digital'],
+  budgets: {},
+  flighting: {},  // ch -> array of bool per week
+  kpis: {},
+};
+
+let donutChart = null;
+let reachCurveChart = null;
+const MEMORY_KEY = 'mpb_campaigns_v1';
+let campaignMemory = [];
+try { campaignMemory = JSON.parse(localStorage.getItem(MEMORY_KEY) || '[]'); } catch(e) { campaignMemory = []; }
+
+// ===================== CHANNEL CONFIG =====================
+const channelConfig = {
+  digital:    { name: 'Digital',    icon: '📱', color: '#0f3460' },
+  email:      { name: 'Email/CRM',  icon: '📧', color: '#27ae60' },
+  tv:         { name: 'TV',         icon: '📺', color: '#8e44ad' },
+  ooh:        { name: 'OOH',        icon: '🏙',  color: '#e67e22' },
+  print:      { name: 'Print',      icon: '📰', color: '#2980b9' },
+  influencer: { name: 'Influencer', icon: '🎙', color: '#e94560' },
+};
+
+// ===================== BENCHMARK DATA =====================
+const benchmarks = {
+  fmcg:    { digital: { cpm:100, ctr:1.2, roas:3.5, cpl:120, cpc:12, conv_rate:2.0, vtr:45 }, email: { open:22, ctr:3.5, conv:1.8, unsub:0.4 }, tv: { cpp:20000, freq:4, recall:8 }, ooh: { cpm:60, freq:7 }, print: { cpm:180, readership:3 }, influencer: { cpe:8, er:4, avg_followers:50000 } },
+  retail:  { digital: { cpm:85, ctr:1.5, roas:5.0, cpl:90, cpc:10, conv_rate:2.5, vtr:48 }, email: { open:25, ctr:4.2, conv:2.2, unsub:0.3 }, tv: { cpp:18000, freq:3.5, recall:6 }, ooh: { cpm:55, freq:6 }, print: { cpm:160, readership:2.5 }, influencer: { cpe:7, er:3.5, avg_followers:40000 } },
+  finance: { digital: { cpm:130, ctr:0.65, roas:4.5, cpl:250, cpc:22, conv_rate:1.5, vtr:40 }, email: { open:27, ctr:3.8, conv:1.5, unsub:0.3 }, tv: { cpp:25000, freq:5, recall:10 }, ooh: { cpm:70, freq:8 }, print: { cpm:200, readership:3.5 }, influencer: { cpe:12, er:2.5, avg_followers:80000 } },
+  telecom: { digital: { cpm:95, ctr:0.8, roas:4.0, cpl:180, cpc:15, conv_rate:1.8, vtr:42 }, email: { open:20, ctr:3.0, conv:1.2, unsub:0.5 }, tv: { cpp:22000, freq:5, recall:9 }, ooh: { cpm:65, freq:8 }, print: { cpm:170, readership:2.8 }, influencer: { cpe:10, er:3, avg_followers:60000 } },
+  auto:    { digital: { cpm:120, ctr:0.7, roas:3.8, cpl:400, cpc:25, conv_rate:1.2, vtr:55 }, email: { open:23, ctr:4.0, conv:1.4, unsub:0.35 }, tv: { cpp:28000, freq:4.5, recall:12 }, ooh: { cpm:75, freq:7 }, print: { cpm:220, readership:3 }, influencer: { cpe:15, er:3.5, avg_followers:70000 } },
+};
+
+// Recommended budget splits by objective
+const recommendedSplits = {
+  awareness:    { digital:45, tv:30, ooh:15, email:0,  print:5,  influencer:5  },
+  consideration:{ digital:50, tv:20, ooh:10, email:5,  print:5,  influencer:10 },
+  performance:  { digital:65, tv:0,  ooh:5,  email:15, print:0,  influencer:15 },
+  launch:       { digital:40, tv:30, ooh:15, email:5,  print:5,  influencer:5  },
+  retention:    { digital:30, tv:0,  ooh:0,  email:50, print:0,  influencer:20 },
+  seasonal:     { digital:50, tv:25, ooh:15, email:5,  print:0,  influencer:5  },
+};
+
+// ===================== INDIA MEDIA CALENDAR =====================
+// months are 0-indexed (Jan=0, Dec=11)
+const indiaMediaCalendar = [
+  { name:'Republic Day', months:[0], cpmMultiplier:1.1, badge:'season-republic', emoji:'🇮🇳', shortName:'R-Day' },
+  { name:'Budget Day', months:[1], cpmMultiplier:1.15, badge:'season-budget', emoji:'📜', shortName:'Budget' },
+  { name:'Board Exams', months:[2], cpmMultiplier:0.85, badge:'season-exam', emoji:'📚', shortName:'Exams↓' },
+  { name:'IPL Season', months:[3,4], cpmMultiplier:1.40, badge:'season-ipl', emoji:'🏏', shortName:'IPL+40%' },
+  { name:'Eid', months:[3,4], cpmMultiplier:1.20, badge:'season-eid', emoji:'🌙', shortName:'Eid' },
+  { name:'Independence Day', months:[7], cpmMultiplier:1.10, badge:'season-independence', emoji:'🇮🇳', shortName:'I-Day' },
+  { name:'Navratri', months:[9], cpmMultiplier:1.25, badge:'season-navratri', emoji:'💃', shortName:'Navratri' },
+  { name:'Diwali', months:[10], cpmMultiplier:1.50, badge:'season-diwali', emoji:'🪔', shortName:'Diwali+50%' },
+  { name:'Christmas & New Year', months:[11], cpmMultiplier:1.20, badge:'season-christmas', emoji:'🎄', shortName:'Xmas/NY' },
+];
+
+// ===================== SATURATION CURVE PARAMS =====================
+// halfSat = budget level at which you achieve 50% of theoretical maximum reach
+const saturationParams = {
+  digital:    { halfSat: 500000 },    // inflection at ₹5L
+  tv:         { halfSat: 3000000 },   // inflection at ₹30L
+  ooh:        { halfSat: 800000 },    // inflection at ₹8L
+  influencer: { halfSat: 600000 },    // inflection at ₹6L
+  email:      { halfSat: 0 },         // linear
+  print:      { halfSat: 0 },         // linear
+};
+
+// KPI definitions per channel
+const kpiDefs = {
+  digital:    [ { id:'ctr',       label:'CTR',            unit:'%',  bench_key:'ctr'       },
+                { id:'roas',      label:'ROAS',           unit:'x',  bench_key:'roas'      },
+                { id:'cpl',       label:'CPL',            unit:'₹',  bench_key:'cpl'       },
+                { id:'cpc',       label:'CPC',            unit:'₹',  bench_key:'cpc'       },
+                { id:'vtr',       label:'Video VTR',      unit:'%',  bench_key:'vtr'       } ],
+  email:      [ { id:'open',      label:'Open Rate',      unit:'%',  bench_key:'open'      },
+                { id:'ctr',       label:'CTR',            unit:'%',  bench_key:'ctr'       },
+                { id:'conv',      label:'Conv. Rate',     unit:'%',  bench_key:'conv'      } ],
+  tv:         [ { id:'recall',    label:'Brand Recall Lift', unit:'pts', bench_key:'recall' },
+                { id:'freq',      label:'Target Frequency','unit':'x', bench_key:'freq'    } ],
+  ooh:        [ { id:'freq',      label:'Target Frequency','unit':'x', bench_key:'freq'    } ],
+  print:      [ { id:'readership','label':'Readership Mult.','unit':'x','bench_key':'readership' } ],
+  influencer: [ { id:'er',        label:'Engagement Rate','unit':'%',  bench_key:'er'      },
+                { id:'cpe',       label:'Cost Per Engagement','unit':'₹','bench_key':'cpe' } ],
+};
+
+// ===================== HELPERS =====================
+const fmtINR = v => {
+  if (!v) return '₹0';
+  if (v >= 10000000) return `₹${(v/10000000).toFixed(1)}Cr`;
+  if (v >= 100000)   return `₹${(v/100000).toFixed(1)}L`;
+  if (v >= 1000)     return `₹${(v/1000).toFixed(0)}K`;
+  return `₹${v.toFixed(0)}`;
+};
+const fmtNum = v => {
+  if (!v) return '0';
+  if (v >= 10000000) return `${(v/10000000).toFixed(1)}Cr`;
+  if (v >= 100000)   return `${(v/100000).toFixed(1)}L`;
+  if (v >= 1000)     return `${(v/1000).toFixed(0)}K`;
+  return `${Math.round(v)}`;
+};
+const getTotalBudget = () => parseFloat(document.getElementById('f_budget')?.value) || 0;
+const getWeeks = () => parseInt(document.getElementById('f_weeks')?.value) || 8;
+const getIndustry = () => document.getElementById('f_industry')?.value || 'fmcg';
+const getBench = ch => benchmarks[getIndustry()]?.[ch] || {};
+const getChannelBudget = ch => state.budgets[ch] || 0;
+
+// Active weeks for a channel
+const getActiveWeeks = ch => {
+  const w = getWeeks();
+  if (!state.flighting[ch]) return Array(w).fill(true);
+  return state.flighting[ch].slice(0, w);
+};
+const countActiveWeeks = ch => getActiveWeeks(ch).filter(Boolean).length;
+
+// ===================== STEP NAVIGATION =====================
+function goStep(n) {
+  document.querySelectorAll('.section-step').forEach((s,i) => s.classList.toggle('active', i === n-1));
+  document.querySelectorAll('.step-btn').forEach((b,i) => {
+    b.classList.toggle('active', i === n-1);
+    if (i < n-1) b.classList.add('done'); else b.classList.remove('done');
+  });
+  if (n === 3) renderFlighting();
+  if (n === 4) { renderProjections(); renderKPITable(); }
+  if (n === 5) renderSummary();
+  updateSidebar();
+}
+
+// ===================== CALC WEEKS =====================
+function calcWeeks() {
+  const s = document.getElementById('f_start')?.value;
+  const e = document.getElementById('f_end')?.value;
+  if (s && e) {
+    const diff = Math.ceil((new Date(e) - new Date(s)) / (1000*60*60*24*7));
+    if (diff > 0 && diff <= 52) document.getElementById('f_weeks').value = diff;
+  }
+  renderFlighting();
+  updateSidebar();
+}
+
+// ===================== CHANNEL TOGGLE =====================
+function toggleChannel(ch) {
+  const card = document.getElementById(`ch-card-${ch}`);
+  if (state.channels.includes(ch)) {
+    if (state.channels.length <= 1) return; // keep at least one
+    state.channels = state.channels.filter(c => c !== ch);
+    card.classList.remove('selected');
+  } else {
+    state.channels.push(ch);
+    card.classList.add('selected');
+  }
+  renderSliders();
+  renderFlighting();
+  updateDonut();
+  updateSidebar();
+}
+
+// ===================== SLIDERS =====================
+function renderSliders() {
+  const total = getTotalBudget();
+  document.getElementById('total-budget-display').textContent = fmtINR(total);
+  const container = document.getElementById('slider-container');
+  container.innerHTML = state.channels.map(ch => {
+    const cfg = channelConfig[ch];
+    const pct = Math.round(((state.budgets[ch] || 0) / (total || 1)) * 100);
+    return `
+      <div class="slider-row">
+        <div class="slider-ch-name"><span>${cfg.icon}</span>${cfg.name}</div>
+        <div class="slider-wrap">
+          <input type="range" min="0" max="100" value="${pct}" id="slider-${ch}"
+            style="--val:${pct}%"
+            oninput="onSliderMove('${ch}', this.value)" />
+        </div>
+        <div class="slider-pct" id="pct-${ch}">${pct}%</div>
+        <div class="slider-amt" id="amt-${ch}">${fmtINR((pct/100)*total)}</div>
+      </div>`;
+  }).join('');
+  updateBudgetWarning();
+  updateDonut();
+  updateSidebar();
+}
+
+function onSliderMove(ch, val) {
+  val = parseInt(val);
+  const total = getTotalBudget();
+  state.budgets[ch] = Math.round((val / 100) * total);
+  const el = document.getElementById(`slider-${ch}`);
+  if (el) el.style.setProperty('--val', val + '%');
+  document.getElementById(`pct-${ch}`).textContent = `${val}%`;
+  document.getElementById(`amt-${ch}`).textContent = fmtINR(state.budgets[ch]);
+  updateBudgetWarning();
+  updateDonut();
+  updateSidebar();
+  recalcProjections();
+}
+
+function updateBudgetWarning() {
+  const total = getTotalBudget();
+  const allocated = state.channels.reduce((s, ch) => s + (state.budgets[ch] || 0), 0);
+  const remaining = total - allocated;
+  document.getElementById('remaining-budget').textContent = fmtINR(remaining);
+  document.getElementById('remaining-budget').style.color = remaining < 0 ? 'var(--highlight)' : 'var(--green)';
+  document.getElementById('budget-warn').style.display = remaining < -100 ? 'flex' : 'none';
+}
+
+function autoRecommend() {
+  const obj = document.getElementById('f_objective')?.value || 'awareness';
+  const splits = recommendedSplits[obj] || recommendedSplits.awareness;
+  const total = getTotalBudget();
+  const activeChannels = state.channels;
+
+  // Redistribute splits across only active channels, normalise to 100
+  let totalPct = activeChannels.reduce((s, ch) => s + (splits[ch] || 0), 0);
+  if (totalPct === 0) totalPct = 100;
+  activeChannels.forEach(ch => {
+    const pct = ((splits[ch] || 0) / totalPct) * 100;
+    state.budgets[ch] = Math.round((pct / 100) * total);
+    const el = document.getElementById(`slider-${ch}`);
+    if (el) { el.value = Math.round(pct); el.style.setProperty('--val', Math.round(pct) + '%'); }
+    const pctEl = document.getElementById(`pct-${ch}`);
+    const amtEl = document.getElementById(`amt-${ch}`);
+    if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
+    if (amtEl) amtEl.textContent = fmtINR(state.budgets[ch]);
+  });
+  updateBudgetWarning();
+  updateDonut();
+  updateSidebar();
+}
+
+// ===================== DONUT CHART =====================
+function updateDonut() {
+  const labels = state.channels.map(ch => channelConfig[ch].name);
+  const data = state.channels.map(ch => state.budgets[ch] || 0);
+  const colors = state.channels.map(ch => channelConfig[ch].color);
+  const ctx = document.getElementById('donut-chart');
+  if (!ctx) return;
+  if (donutChart) donutChart.destroy();
+  donutChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: 'white' }] },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '65%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmtINR(ctx.raw)} (${Math.round(ctx.raw / (getTotalBudget()||1) * 100)}%)` } } }
+    }
+  });
+}
+
+// ===================== FLIGHTING CALENDAR =====================
+function renderFlighting() {
+  const weeks = getWeeks();
+  const chs = state.channels;
+  if (!chs.length) return;
+
+  // Initialise flighting state
+  chs.forEach(ch => {
+    if (!state.flighting[ch] || state.flighting[ch].length !== weeks) {
+      state.flighting[ch] = Array(weeks).fill(true);
+    }
+  });
+
+  const table = document.getElementById('flight-table');
+  const startDate = document.getElementById('f_start')?.value;
+  // Header with seasonality badges
+  let html = '<thead><tr><th class="ch-col">Channel</th>';
+  for (let w = 0; w < weeks; w++) {
+    const evts = detectSeasonality(startDate, w);
+    const topEvt = evts.sort((a,b) => b.cpmMultiplier - a.cpmMultiplier)[0];
+    const hasSeason = !!topEvt;
+    const badge = topEvt ? `<br><span class="season-badge ${topEvt.badge}">${topEvt.emoji} ${topEvt.shortName}</span>` : '';
+    html += `<th${hasSeason ? ' class="has-season"' : ''}>W${w+1}${badge}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  chs.forEach(ch => {
+    const cfg = channelConfig[ch];
+    const budget = state.budgets[ch] || 0;
+    html += `<tr>
+      <td class="ch-label">
+        <div style="display:flex;align-items:center;gap:4px;">
+          <span>${cfg.icon}</span>
+          <span>${cfg.name}</span>
+          <div class="pattern-btns">
+            <button class="pat-btn" onclick="setPattern('${ch}','burst')">Burst</button>
+            <button class="pat-btn" onclick="setPattern('${ch}','pulse')">Pulse</button>
+            <button class="pat-btn" onclick="setPattern('${ch}','always')">Always-on</button>
+          </div>
+        </div>
+      </td>`;
+    for (let w = 0; w < weeks; w++) {
+      const active = state.flighting[ch][w];
+      const activeCount = state.flighting[ch].filter(Boolean).length || 1;
+      const weekBudget = active ? Math.round(budget / activeCount) : 0;
+      const intensity = active ? Math.max(30, Math.round((weekBudget / (budget / activeCount)) * 100)) : 0;
+      const bg = active ? hexWithAlpha(cfg.color, intensity / 100) : '#f0f2f5';
+      const txtColor = active ? 'white' : '#ccc';
+      html += `<td><div class="flight-cell" id="fc-${ch}-${w}" style="background:${bg};color:${txtColor};"
+        onclick="toggleCell('${ch}',${w})">${active && weekBudget > 0 ? fmtINR(weekBudget) : ''}</div></td>`;
+    }
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function hexWithAlpha(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function toggleCell(ch, w) {
+  state.flighting[ch][w] = !state.flighting[ch][w];
+  renderFlighting();
+  recalcProjections();
+}
+
+function setPattern(ch, pattern) {
+  const weeks = getWeeks();
+  const arr = Array(weeks).fill(false);
+  if (pattern === 'always') { arr.fill(true); }
+  else if (pattern === 'burst') { arr.fill(true, 0, Math.max(2, Math.round(weeks * 0.25))); }
+  else if (pattern === 'pulse') { for (let i = 0; i < weeks; i++) arr[i] = i % 2 === 0; }
+  state.flighting[ch] = arr;
+  renderFlighting();
+  recalcProjections();
+}
+
+// ===================== SEASONALITY HELPERS =====================
+function detectSeasonality(startDate, weekIndex) {
+  if (!startDate) return [];
+  const d = new Date(startDate);
+  d.setDate(d.getDate() + weekIndex * 7);
+  const month = d.getMonth();
+  return indiaMediaCalendar.filter(ev => ev.months.includes(month));
+}
+
+function getSeasonalCPMMultiplier(ch) {
+  if (!['digital','tv','ooh'].includes(ch)) return 1;
+  const start = document.getElementById('f_start')?.value;
+  if (!start) return 1;
+  const startDate = new Date(start);
+  const month = startDate.getMonth();
+  let mult = 1;
+  indiaMediaCalendar.forEach(ev => {
+    if (ev.months.includes(month)) mult = Math.max(mult, ev.cpmMultiplier);
+  });
+  return mult;
+}
+
+// ===================== PROJECTIONS (SATURATION CURVE MODEL) =====================
+function calcProjections(ch) {
+  const budget = state.budgets[ch] || 0;
+  const bench = getBench(ch);
+  const cpmMult = getSeasonalCPMMultiplier(ch);
+  if (!budget) return null;
+
+  if (ch === 'digital') {
+    const effectiveCPM = (bench.cpm || 100) * cpmMult;
+    const impressions = Math.round((budget / effectiveCPM) * 1000);
+    // Saturation reach: reach = maxReach * budget / (budget + halfSat)
+    const halfSat = saturationParams.digital.halfSat;
+    const maxReach = impressions * 0.72; // theoretical max (unique users ≤ 72% of impressions)
+    const reach = Math.round(maxReach * budget / (budget + halfSat));
+    const clicks = Math.round(impressions * (bench.ctr || 1.2) / 100);
+    const conversions = Math.round(clicks * (bench.conv_rate || 2) / 100);
+    const seasonNote = cpmMult > 1 ? ` (×${cpmMult.toFixed(1)} seasonal)` : '';
+    return { impressions, reach, clicks, conversions, halfSat, cpmMult, effectiveCPM,
+      metrics: [
+        { label: 'Impressions', value: fmtNum(impressions) },
+        { label: 'Est. Reach (saturation model)', value: fmtNum(reach) },
+        { label: 'Est. Clicks', value: fmtNum(clicks) },
+        { label: 'Est. Conversions', value: fmtNum(conversions) },
+        { label: `CPM${seasonNote}`, value: `₹${effectiveCPM.toFixed(0)}` },
+      ]};
+  }
+  if (ch === 'email') {
+    const sends = Math.round(budget / 0.5);
+    const opens = Math.round(sends * (bench.open || 22) / 100);
+    const clicks = Math.round(opens * (bench.ctr || 3.5) / 100);
+    return { impressions: opens, reach: sends,
+      metrics: [
+        { label: 'Est. Sends', value: fmtNum(sends) },
+        { label: 'Est. Opens', value: fmtNum(opens) },
+        { label: 'Est. Clicks', value: fmtNum(clicks) },
+        { label: 'Open Rate', value: `${bench.open}%` },
+      ]};
+  }
+  if (ch === 'tv') {
+    const effectiveCPP = (bench.cpp || 20000) * cpmMult;
+    const grps = Math.round(budget / effectiveCPP);
+    // Saturation: max TV reach ~75%; diminishing beyond halfSat
+    const halfSat = saturationParams.tv.halfSat;
+    const reachPct = Math.round(75 * budget / (budget + halfSat));
+    const recallLift = Math.round(grps / 25);
+    const seasonNote = cpmMult > 1 ? ` (×${cpmMult.toFixed(1)} seasonal)` : '';
+    return { impressions: grps * 50000, reach: reachPct, halfSat, cpmMult,
+      metrics: [
+        { label: 'Est. GRPs', value: grps },
+        { label: 'Est. Reach (saturation model)', value: `${reachPct}%` },
+        { label: 'Avg. Frequency', value: `${bench.freq}x` },
+        { label: 'Recall Lift', value: `~${recallLift}pts` },
+        { label: `CPP${seasonNote}`, value: fmtINR(effectiveCPP) },
+      ]};
+  }
+  if (ch === 'ooh') {
+    const effectiveCPM = (bench.cpm || 60) * cpmMult;
+    const impressions = Math.round((budget / effectiveCPM) * 1000);
+    const halfSat = saturationParams.ooh.halfSat;
+    const maxReach = impressions * 0.6;
+    const reach = Math.round(maxReach * budget / (budget + halfSat));
+    const locations = Math.round(budget / 50000);
+    const seasonNote = cpmMult > 1 ? ` (×${cpmMult.toFixed(1)} seasonal)` : '';
+    return { impressions, reach, halfSat, cpmMult,
+      metrics: [
+        { label: 'Est. Impressions', value: fmtNum(impressions) },
+        { label: 'Est. Reach (saturation model)', value: fmtNum(reach) },
+        { label: 'Est. Locations', value: locations },
+        { label: `CPM${seasonNote}`, value: `₹${effectiveCPM.toFixed(0)}` },
+      ]};
+  }
+  if (ch === 'print') {
+    const impressions = Math.round((budget / (bench.cpm || 180)) * 1000 * (bench.readership || 3));
+    return { impressions, reach: Math.round(impressions * 0.8),
+      metrics: [
+        { label: 'Circulation × Readership', value: fmtNum(impressions) },
+        { label: 'Readership Multiplier', value: `${bench.readership}x` },
+        { label: 'CPM', value: `₹${bench.cpm}` },
+      ]};
+  }
+  if (ch === 'influencer') {
+    const halfSat = saturationParams.influencer.halfSat;
+    // Saturation on number of quality creators available at scale
+    const maxCreators = Math.round(budget / (bench.avg_followers * 0.1));
+    const creators = Math.round(maxCreators * budget / (budget + halfSat));
+    const reach = Math.round(creators * (bench.avg_followers || 50000));
+    const engagements = Math.round(reach * (bench.er || 4) / 100);
+    return { impressions: reach, reach, halfSat,
+      metrics: [
+        { label: 'Est. Creators', value: Math.max(1, creators) },
+        { label: 'Est. Reach (saturation model)', value: fmtNum(reach) },
+        { label: 'Est. Engagements', value: fmtNum(engagements) },
+        { label: 'Avg. ER', value: `${bench.er}%` },
+        { label: 'CPE', value: `₹${bench.cpe}` },
+      ]};
+  }
+  return null;
+}
+
+let projCache = {};
+function recalcProjections() {
+  projCache = {};
+  state.channels.forEach(ch => { projCache[ch] = calcProjections(ch); });
+  // Update sidebar reach
+  let totalImpr = 0, totalReach = 0;
+  state.channels.forEach(ch => {
+    if (projCache[ch]) { totalImpr += projCache[ch].impressions || 0; totalReach += projCache[ch].reach || 0; }
+  });
+  document.getElementById('sb-reach').textContent = fmtNum(totalReach);
+  document.getElementById('sb-impr').textContent = fmtNum(totalImpr);
+}
+
+function renderProjections() {
+  recalcProjections();
+  const grid = document.getElementById('proj-grid');
+  grid.innerHTML = state.channels.map(ch => {
+    const p = projCache[ch];
+    const cfg = channelConfig[ch];
+    const budget = state.budgets[ch] || 0;
+    if (!p) return `<div class="proj-card"><div class="proj-card-header"><div class="proj-ch-icon">${cfg.icon}</div><div><div class="proj-ch-name">${cfg.name}</div><div class="proj-ch-budget">No budget allocated</div></div></div></div>`;
+    const seasonBadge = p.cpmMult > 1 ? `<span style="font-size:0.65rem;background:var(--gold);color:var(--primary);padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px;">🌐 Seasonal CPM ×${p.cpmMult.toFixed(1)}</span>` : '';
+    return `
+      <div class="proj-card">
+        <div class="proj-card-header">
+          <div class="proj-ch-icon">${cfg.icon}</div>
+          <div>
+            <div class="proj-ch-name">${cfg.name}${seasonBadge}</div>
+            <div class="proj-ch-budget">${fmtINR(budget)}</div>
+          </div>
+        </div>
+        ${p.metrics.map(m => `<div class="proj-metric"><span class="m-label">${m.label}</span><span class="m-value">${m.value}</span></div>`).join('')}
+      </div>`;
+  }).join('');
+  renderRiskPanel();
+  renderReachCurve();
+}
+
+function renderKPITable() {
+  const industry = getIndustry();
+  const tbody = document.getElementById('kpi-tbody');
+  let rows = '';
+  state.channels.forEach(ch => {
+    const defs = kpiDefs[ch] || [];
+    const bench = getBench(ch);
+    defs.forEach((k, i) => {
+      const benchVal = bench[k.bench_key] || '';
+      const existingVal = state.kpis[`${ch}_${k.id}`] ?? benchVal;
+      rows += `
+        <tr>
+          ${i === 0 ? `<td rowspan="${defs.length}" style="font-weight:700;vertical-align:top;padding-top:12px;">${channelConfig[ch].icon} ${channelConfig[ch].name}</td>` : ''}
+          <td>${k.label}</td>
+          <td style="color:var(--text-light)">${k.unit}</td>
+          <td><input type="number" step="any" value="${existingVal}" id="kpi-${ch}-${k.id}" onchange="state.kpis['${ch}_${k.id}']=this.value" /></td>
+          <td style="color:var(--text-light);font-size:0.82rem;">${benchVal}${k.unit}<span class="bench-ref">Industry benchmark</span></td>
+        </tr>`;
+    });
+  });
+  tbody.innerHTML = rows;
+}
+
+// ===================== RISK DETECTOR =====================
+function detectRisks() {
+  const risks = [];
+  const totalBudget = getTotalBudget();
+  const objective = document.getElementById('f_objective')?.value || '';
+  const weeks = getWeeks();
+  if (!totalBudget || !state.channels.length) return risks;
+
+  // Risk 1: Single channel dominance > 65%
+  state.channels.forEach(ch => {
+    const pct = (state.budgets[ch] || 0) / totalBudget * 100;
+    if (pct > 65) {
+      risks.push({ level:'high', icon:'⚠️', title:`${channelConfig[ch].name} over-concentration (${Math.round(pct)}%)`,
+        desc:`More than 65% of budget on a single channel risks reach ceiling and frequency fatigue. Consider shifting 10–15% to complementary channels.` });
+    }
+  });
+
+  // Risk 2: Awareness objective with no high-reach channel at meaningful spend
+  if (objective === 'awareness') {
+    const hasHighReach = state.channels.some(ch =>
+      ['tv','ooh'].includes(ch) && (state.budgets[ch] || 0) / totalBudget > 0.10
+    ) || ((state.budgets['digital'] || 0) / totalBudget > 0.25);
+    if (!hasHighReach) {
+      risks.push({ level:'high', icon:'📡', title:'Awareness plan lacks high-reach channel',
+        desc:'Brand awareness campaigns need TV/OOH (>10% each) or substantial Digital (>25%). Current allocation may not achieve population-level reach.' });
+    }
+  }
+
+  // Risk 3: Performance objective with high TV allocation
+  if (objective === 'performance') {
+    const tvPct = (state.budgets['tv'] || 0) / totalBudget * 100;
+    if (tvPct > 25) {
+      risks.push({ level:'medium', icon:'🎯', title:`TV at ${Math.round(tvPct)}% — high for performance objective`,
+        desc:'TV drives awareness and recall but is hard to attribute to conversions. For performance campaigns, reallocate TV budget toward Digital or Email for better trackability.' });
+    }
+  }
+
+  // Risk 4: Retention objective missing Email channel
+  if (objective === 'retention') {
+    const emailBudget = state.budgets['email'] || 0;
+    if (!state.channels.includes('email') || emailBudget === 0) {
+      risks.push({ level:'medium', icon:'📧', title:'Retention campaign missing Email/CRM',
+        desc:'Email is the highest-ROI retention channel (typical ROAS 30–40x). Without it, you are using paid media to retain users you already own.' });
+    }
+  }
+
+  // Risk 5: Burst pattern over-concentrated in ≤2 weeks on a long campaign
+  state.channels.forEach(ch => {
+    const flight = state.flighting[ch] || [];
+    const totalActive = flight.filter(Boolean).length;
+    if (weeks >= 6 && totalActive > 0 && totalActive <= 2) {
+      risks.push({ level:'medium', icon:'💥', title:`${channelConfig[ch].name}: burst in ${totalActive}/${weeks} weeks only`,
+        desc:`Concentrating all ${channelConfig[ch].name} spend in ${totalActive} of ${weeks} weeks is a very short burst. Audiences may not build sufficient frequency, and there is no sustained presence.` });
+    }
+  });
+
+  // Risk 6: Seasonal CPM spike — budget may underdeliver
+  const startDate = document.getElementById('f_start')?.value;
+  if (startDate) {
+    const month = new Date(startDate).getMonth();
+    const highSeasonEvents = indiaMediaCalendar.filter(ev => ev.months.includes(month) && ev.cpmMultiplier >= 1.3);
+    highSeasonEvents.forEach(ev => {
+      risks.push({ level:'medium', icon:'📅', title:`${ev.emoji} ${ev.name} season — CPMs elevated ×${ev.cpmMultiplier}`,
+        desc:`Your campaign starts during ${ev.name}. Industry CPMs are typically ${Math.round((ev.cpmMultiplier-1)*100)}% higher. Your actual reach may be lower than baseline projections — consider adjusting budget upward or shifting start date.` });
+    });
+  }
+
+  // Risk 7: No risks — plan looks healthy
+  if (risks.length === 0) {
+    risks.push({ level:'ok', icon:'✅', title:'No major strategic risks detected',
+      desc:'Your plan structure looks sound. Double-check KPI targets against benchmarks and confirm flighting matches your campaign momentum needs.' });
+  }
+
+  return risks;
+}
+
+function renderRiskPanel() {
+  const panel = document.getElementById('risk-panel');
+  if (!panel) return;
+  const risks = detectRisks();
+  panel.innerHTML = `
+    <div class="card">
+      <div class="card-title">🔍 Automated Plan Risk Check</div>
+      <div class="card-sub">Strategic review against media planning best practices and your campaign parameters.</div>
+      ${risks.map(r => `
+        <div class="risk-card risk-${r.level}">
+          <div class="risk-icon">${r.icon}</div>
+          <div class="risk-text"><strong>${r.title}</strong>${r.desc}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ===================== REACH SATURATION CURVE CHART =====================
+function renderReachCurve() {
+  const ctx = document.getElementById('reach-curve-chart');
+  if (!ctx) return;
+
+  // Pick the primary paid channel with the largest budget
+  const primaryCh = state.channels
+    .filter(ch => ['digital','tv','ooh','influencer'].includes(ch))
+    .sort((a,b) => (state.budgets[b] || 0) - (state.budgets[a] || 0))[0];
+  if (!primaryCh) return;
+
+  const budget = state.budgets[primaryCh] || 0;
+  const bench = getBench(primaryCh);
+  const cpmMult = getSeasonalCPMMultiplier(primaryCh);
+  const halfSat = saturationParams[primaryCh]?.halfSat || 500000;
+
+  // Build saturation curve: 0 → 2× current budget (min 2Cr for context)
+  const maxBudget = Math.max(budget * 2.5, 2000000, halfSat * 4);
+  const steps = 24;
+  const labels = [], reachData = [], marginalData = [];
+
+  for (let i = 1; i <= steps; i++) {
+    const b = (maxBudget / steps) * i;
+    labels.push(fmtINR(b));
+    let reach = 0;
+    if (primaryCh === 'digital') {
+      const effectiveCPM = (bench.cpm || 100) * cpmMult;
+      const impressions = (b / effectiveCPM) * 1000;
+      reach = (impressions * 0.72 * b / (b + halfSat)) / 100000; // in Lakhs
+    } else if (primaryCh === 'tv') {
+      reach = 75 * b / (b + halfSat); // percentage
+    } else if (primaryCh === 'ooh') {
+      const effectiveCPM = (bench.cpm || 60) * cpmMult;
+      const impressions = (b / effectiveCPM) * 1000;
+      reach = (impressions * 0.6 * b / (b + halfSat)) / 100000;
+    } else if (primaryCh === 'influencer') {
+      const maxCreators = b / (bench.avg_followers * 0.1);
+      const creators = maxCreators * b / (b + halfSat);
+      reach = (creators * (bench.avg_followers || 50000)) / 100000;
+    }
+    reachData.push(Math.max(0, parseFloat(reach.toFixed(2))));
+  }
+
+  // Mark current spend point
+  const currentStepF = (budget / maxBudget) * steps;
+  const pointRadii = reachData.map((_, i) => {
+    return Math.abs(i - (currentStepF - 1)) < 1 ? 7 : 2;
+  });
+  const pointColors = reachData.map((_, i) =>
+    Math.abs(i - (currentStepF - 1)) < 1 ? '#e94560' : channelConfig[primaryCh].color
+  );
+
+  if (reachCurveChart) reachCurveChart.destroy();
+  const yLabel = primaryCh === 'tv' ? 'Est. Reach (%)' : 'Est. Reach (Lakhs)';
+  reachCurveChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: `${channelConfig[primaryCh].name} Reach`,
+        data: reachData,
+        borderColor: channelConfig[primaryCh].color,
+        backgroundColor: channelConfig[primaryCh].color + '1a',
+        tension: 0.45,
+        fill: true,
+        pointRadius: pointRadii,
+        pointBackgroundColor: pointColors,
+        pointBorderColor: pointColors,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: c => ` ${yLabel}: ${c.raw}`,
+          title: t => `Budget: ${t[0].label}`
+        }}
+      },
+      scales: {
+        x: { ticks: { maxRotation: 50, font: { size: 8 }, maxTicksLimit: 10 }, grid: { display: false } },
+        y: { title: { display: true, text: yLabel, font: { size: 9 } }, ticks: { font: { size: 9 } } }
+      }
+    }
+  });
+
+  const optSpendEl = document.getElementById('opt-spend-info');
+  if (optSpendEl) {
+    const budgetVsOpt = budget < halfSat ? '⬇️ below' : budget < halfSat * 2 ? '✅ near' : '⬆️ above';
+    optSpendEl.innerHTML = `<span class="opt-spend-badge">💡 Inflection point for ${channelConfig[primaryCh].name}: ${fmtINR(halfSat)} — your current spend (${fmtINR(budget)}) is ${budgetVsOpt} optimal</span>`;
+  }
+}
+
+// ===================== CAMPAIGN MEMORY =====================
+function saveCampaign() {
+  const name = document.getElementById('f_name')?.value?.trim();
+  if (!name) { alert('Please enter a Campaign Name (Step 1) before saving.'); return; }
+  recalcProjections();
+  const plan = {
+    id: Date.now(),
+    name,
+    brand: document.getElementById('f_brand')?.value || '',
+    savedAt: new Date().toLocaleDateString('en-IN'),
+    totalBudget: getTotalBudget(),
+    industry: getIndustry(),
+    objective: document.getElementById('f_objective')?.value || '',
+    weeks: getWeeks(),
+    channels: [...state.channels],
+    budgets: { ...state.budgets },
+    kpis: { ...state.kpis },
+    audience: document.getElementById('f_audience')?.value || '',
+    geo: document.getElementById('f_geo')?.value || '',
+    start: document.getElementById('f_start')?.value || '',
+    end: document.getElementById('f_end')?.value || '',
+  };
+  // Replace if same name exists, else prepend
+  const existingIdx = campaignMemory.findIndex(p => p.name === name);
+  if (existingIdx >= 0) campaignMemory[existingIdx] = plan;
+  else campaignMemory.unshift(plan);
+  campaignMemory = campaignMemory.slice(0, 5); // keep last 5 plans
+  try { localStorage.setItem(MEMORY_KEY, JSON.stringify(campaignMemory)); } catch(e) {}
+  renderMemoryPanel();
+  alert(`✅ Plan "${name}" saved to Brand Memory.`);
+}
+
+function loadCampaign(id) {
+  const plan = campaignMemory.find(p => p.id === id);
+  if (!plan) return;
+  if (!confirm(`Load "${plan.name}"?\n\nThis will replace your current plan.`)) return;
+
+  document.getElementById('f_name').value = plan.name || '';
+  document.getElementById('f_brand').value = plan.brand || '';
+  document.getElementById('f_budget').value = plan.totalBudget || '';
+  document.getElementById('f_industry').value = plan.industry || 'fmcg';
+  document.getElementById('f_objective').value = plan.objective || '';
+  document.getElementById('f_weeks').value = plan.weeks || 8;
+  document.getElementById('f_audience').value = plan.audience || '';
+  document.getElementById('f_geo').value = plan.geo || '';
+  if (plan.start) document.getElementById('f_start').value = plan.start;
+  if (plan.end) document.getElementById('f_end').value = plan.end;
+
+  state.channels = plan.channels?.length ? [...plan.channels] : ['digital'];
+  state.budgets = { ...plan.budgets } || {};
+  state.kpis = { ...plan.kpis } || {};
+  state.flighting = {};
+
+  // Sync channel card UI
+  document.querySelectorAll('.ch-card').forEach(c => c.classList.remove('selected'));
+  state.channels.forEach(ch => document.getElementById(`ch-card-${ch}`)?.classList.add('selected'));
+
+  renderSliders();
+  renderFlighting();
+  updateSidebar();
+  recalcAll();
+  goStep(1);
+}
+
+function renderMemoryPanel() {
+  const el = document.getElementById('memory-list');
+  if (!el) return;
+  if (!campaignMemory.length) {
+    el.innerHTML = '<div style="font-size:0.72rem;color:var(--text-light);text-align:center;padding:4px 0;">No saved plans yet.<br>Complete your plan and click 💾 Save.</div>';
+    return;
+  }
+  el.innerHTML = campaignMemory.map(p => `
+    <div class="memory-item">
+      <div>
+        <div class="m-name">${p.name}</div>
+        <div class="m-meta">${p.brand ? p.brand + ' · ' : ''}${fmtINR(p.totalBudget)} · ${p.savedAt}</div>
+      </div>
+      <button class="memory-load-btn" onclick="loadCampaign(${p.id})">Load</button>
+    </div>`).join('');
+}
+
+function recalcAll() { recalcProjections(); updateSidebar(); }
+
+// ===================== SIDEBAR UPDATE =====================
+function updateSidebar() {
+  const name = document.getElementById('f_name')?.value || '—';
+  const budget = getTotalBudget();
+  const weeks = getWeeks();
+  const obj = document.getElementById('f_objective');
+  const objText = obj?.options[obj.selectedIndex]?.text || '—';
+
+  document.getElementById('sb-name').textContent = name;
+  document.getElementById('sb-budget').textContent = fmtINR(budget);
+  document.getElementById('sb-duration').textContent = `${weeks} weeks`;
+  document.getElementById('sb-obj').textContent = objText;
+
+  const allocated = state.channels.reduce((s, ch) => s + (state.budgets[ch] || 0), 0);
+  const pct = budget > 0 ? Math.min(100, Math.round((allocated / budget) * 100)) : 0;
+  document.getElementById('sb-allocated').textContent = fmtINR(allocated);
+  document.getElementById('sb-alloc-fill').style.width = pct + '%';
+  document.getElementById('sb-alloc-fill').style.background = pct > 105 ? 'var(--highlight)' : pct > 90 ? 'var(--green)' : 'var(--gold)';
+
+  document.getElementById('sb-channels').innerHTML = state.channels.map(ch => {
+    const cfg = channelConfig[ch];
+    return `<div class="channel-chip" style="border-color:${cfg.color};color:${cfg.color}">${cfg.icon} ${cfg.name}: ${fmtINR(state.budgets[ch] || 0)}</div>`;
+  }).join('');
+}
+
+// ===================== SUMMARY =====================
+function renderSummary() {
+  recalcProjections();
+  const name = document.getElementById('f_name')?.value || 'Campaign';
+  const brand = document.getElementById('f_brand')?.value || '';
+  const obj = document.getElementById('f_objective');
+  const objText = obj?.options[obj.selectedIndex]?.text || '—';
+  const start = document.getElementById('f_start')?.value;
+  const end = document.getElementById('f_end')?.value;
+  const weeks = getWeeks();
+  const totalBudget = getTotalBudget();
+  const audience = document.getElementById('f_audience')?.value || '—';
+  const geo = document.getElementById('f_geo')?.value || '—';
+  const industry = getIndustry();
+
+  let totalImpr = 0, totalReach = 0, totalConv = 0;
+  state.channels.forEach(ch => {
+    if (projCache[ch]) {
+      totalImpr += projCache[ch].impressions || 0;
+      totalReach += projCache[ch].reach || 0;
+      totalConv += projCache[ch].conversions || 0;
+    }
+  });
+
+  const channelColors = ['#0f3460','#27ae60','#8e44ad','#e67e22','#2980b9','#e94560'];
+
+  const summaryHTML = `
+  <div class="summary-hero">
+    <h2>${name} — Media Plan</h2>
+    <div class="meta">${brand ? brand + ' · ' : ''}${objText} · ${weeks} weeks${start ? ' · ' + start : ''}${end ? ' – ' + end : ''} · ${industry.toUpperCase()}</div>
+    <div class="summary-stats">
+      <div class="summary-stat"><div class="s-val">${fmtINR(totalBudget)}</div><div class="s-lbl">Total Budget</div></div>
+      <div class="summary-stat"><div class="s-val">${fmtNum(totalReach)}</div><div class="s-lbl">Est. Total Reach</div></div>
+      <div class="summary-stat"><div class="s-val">${fmtNum(totalImpr)}</div><div class="s-lbl">Est. Impressions</div></div>
+      <div class="summary-stat"><div class="s-val">${state.channels.length}</div><div class="s-lbl">Active Channels</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎯 Campaign Overview</div>
+    <div class="form-grid-2" style="gap:8px;font-size:0.88rem;">
+      <div><strong>Audience:</strong> ${audience}</div>
+      <div><strong>Geography:</strong> ${geo}</div>
+      <div><strong>Objective:</strong> ${objText}</div>
+      <div><strong>Duration:</strong> ${weeks} weeks</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💰 Channel Budget Plan</div>
+    ${state.channels.map((ch, i) => {
+      const cfg = channelConfig[ch];
+      const budget = state.budgets[ch] || 0;
+      const pct = totalBudget > 0 ? Math.round((budget / totalBudget) * 100) : 0;
+      const activeWks = countActiveWeeks(ch);
+      const p = projCache[ch];
+      const reachText = p ? (ch === 'tv' ? `Reach ${p.reach}%` : `Reach ${fmtNum(p.reach)}`) : '';
+      return `
+        <div class="channel-plan-row">
+          <div class="cpr-icon">${cfg.icon}</div>
+          <div class="cpr-name">${cfg.name}</div>
+          <div class="cpr-budget">${fmtINR(budget)} (${pct}%)</div>
+          <div class="cpr-bar">
+            <div class="cpr-bar-track"><div class="cpr-bar-fill" style="width:${pct}%;background:${cfg.color};height:6px;border-radius:3px;"></div></div>
+          </div>
+          <div class="cpr-reach">${activeWks}/${weeks} wks · ${reachText}</div>
+        </div>`;
+    }).join('')}
+  </div>
+
+  <div class="card">
+    <div class="card-title">📅 Flighting Summary</div>
+    <div style="overflow-x:auto;">
+      <table class="flight-table" style="font-size:0.75rem;">
+        <thead><tr><th class="ch-col">Channel</th>${Array.from({length:weeks},(_,i)=>`<th>W${i+1}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${state.channels.map((ch,ci) => {
+            const cfg = channelConfig[ch];
+            const budget = state.budgets[ch] || 0;
+            const activeCount = countActiveWeeks(ch) || 1;
+            return `<tr><td class="ch-label">${cfg.icon} ${cfg.name}</td>${
+              Array.from({length:weeks},(_,w) => {
+                const active = (state.flighting[ch] || [])[w];
+                const wkBudget = active ? Math.round(budget / activeCount) : 0;
+                const bg = active ? hexWithAlpha(cfg.color, 0.75) : '#f0f2f5';
+                return `<td style="background:${bg};text-align:center;font-size:0.65rem;font-weight:700;color:${active?'white':'#ccc'};padding:4px 2px;">${active ? fmtINR(wkBudget) : '—'}</td>`;
+              }).join('')
+            }</tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 KPI Targets</div>
+    <table class="kpi-edit-table">
+      <thead><tr><th>Channel</th><th>KPI</th><th>Target</th><th>Unit</th></tr></thead>
+      <tbody>
+        ${state.channels.map(ch => {
+          const defs = kpiDefs[ch] || [];
+          const bench = getBench(ch);
+          return defs.map((k,i) => `
+            <tr>
+              ${i===0?`<td rowspan="${defs.length}" style="font-weight:700;vertical-align:top;padding-top:10px;">${channelConfig[ch].icon} ${channelConfig[ch].name}</td>`:''}
+              <td>${k.label}</td>
+              <td style="font-weight:700;color:var(--accent)">${state.kpis[`${ch}_${k.id}`] ?? bench[k.bench_key] ?? '—'}</td>
+              <td style="color:var(--text-light)">${k.unit}</td>
+            </tr>`).join('');
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  document.getElementById('summary-content').innerHTML = summaryHTML;
+}
+
+// ===================== EXCEL EXPORT =====================
+function exportExcel() {
+  const name = document.getElementById('f_name')?.value || 'Campaign';
+  const brand = document.getElementById('f_brand')?.value || '';
+  const totalBudget = getTotalBudget();
+  const weeks = getWeeks();
+  const obj = document.getElementById('f_objective');
+  const objText = obj?.options[obj.selectedIndex]?.text || '';
+  const industry = getIndustry();
+  const today = new Date().toLocaleDateString('en-IN');
+
+  recalcProjections();
+  const wb = XLSX.utils.book_new();
+
+  // ---- Sheet 1: Summary ----
+  const s1 = [
+    ['CAMPAIGN MEDIA PLAN', '', '', ''],
+    ['', '', '', ''],
+    ['Campaign Name', name, 'Brand', brand],
+    ['Objective', objText, 'Industry', industry.toUpperCase()],
+    ['Total Budget', totalBudget, 'Duration', `${weeks} weeks`],
+    ['Audience', document.getElementById('f_audience')?.value || '', 'Geography', document.getElementById('f_geo')?.value || ''],
+    ['Prepared', today, '', ''],
+    ['', '', '', ''],
+    ['CHANNEL SUMMARY', '', '', ''],
+    ['Channel', 'Budget (₹)', 'Budget %', 'Active Weeks'],
+    ...state.channels.map(ch => {
+      const pct = totalBudget > 0 ? Math.round((state.budgets[ch] || 0) / totalBudget * 100) : 0;
+      return [channelConfig[ch].name, state.budgets[ch] || 0, `${pct}%`, countActiveWeeks(ch)];
+    }),
+    ['TOTAL', totalBudget, '100%', ''],
+  ];
+  const ws1 = XLSX.utils.aoa_to_sheet(s1);
+  ws1['!cols'] = [{ wch: 22 }, { wch: 18 }, { wch: 22 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+
+  // ---- Sheet 2: Budget Allocation ----
+  const s2 = [
+    ['Channel', 'Budget (₹)', 'Budget %', 'Objective Rationale'],
+    ...state.channels.map(ch => {
+      const pct = totalBudget > 0 ? Math.round((state.budgets[ch] || 0) / totalBudget * 100) : 0;
+      const rationale = { digital:'Primary performance & reach channel', email:'High-ROI owned channel for CRM', tv:'Mass-reach brand awareness', ooh:'Non-skippable high-visibility', print:'Credibility & long-form messaging', influencer:'Authentic social proof & engagement' }[ch] || '';
+      return [channelConfig[ch].name, state.budgets[ch] || 0, `${pct}%`, rationale];
+    }),
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(s2);
+  ws2['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 40 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Budget Allocation');
+
+  // ---- Sheet 3: Flighting Calendar ----
+  const wkHeaders = Array.from({ length: weeks }, (_, i) => `Week ${i + 1}`);
+  const s3 = [
+    ['FLIGHTING CALENDAR'],
+    ['Channel', ...wkHeaders, 'Total Budget', 'Active Weeks'],
+    ...state.channels.map(ch => {
+      const budget = state.budgets[ch] || 0;
+      const activeCount = countActiveWeeks(ch) || 1;
+      const weeklyBudget = Math.round(budget / activeCount);
+      const cells = Array.from({ length: weeks }, (_, w) => {
+        const active = (state.flighting[ch] || [])[w];
+        return active ? weeklyBudget : 0;
+      });
+      return [channelConfig[ch].name, ...cells, budget, activeCount];
+    }),
+    ['TOTAL', ...Array.from({ length: weeks }, (_, w) =>
+      state.channels.reduce((s, ch) => {
+        const active = (state.flighting[ch] || [])[w];
+        const activeCount = countActiveWeeks(ch) || 1;
+        return s + (active ? Math.round((state.budgets[ch] || 0) / activeCount) : 0);
+      }, 0)
+    ), totalBudget, ''],
+  ];
+  const ws3 = XLSX.utils.aoa_to_sheet(s3);
+  ws3['!cols'] = [{ wch: 14 }, ...Array(weeks).fill({ wch: 11 }), { wch: 14 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Flighting Calendar');
+
+  // ---- Sheet 4: KPI Targets ----
+  const s4 = [['Channel', 'KPI', 'Your Target', 'Unit', 'Industry Benchmark']];
+  state.channels.forEach(ch => {
+    const defs = kpiDefs[ch] || [];
+    const bench = getBench(ch);
+    defs.forEach(k => {
+      s4.push([channelConfig[ch].name, k.label, state.kpis[`${ch}_${k.id}`] ?? bench[k.bench_key] ?? '', k.unit, bench[k.bench_key] ?? '']);
+    });
+  });
+  const ws4 = XLSX.utils.aoa_to_sheet(s4);
+  ws4['!cols'] = [{ wch: 16 }, { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, ws4, 'KPI Targets');
+
+  // ---- Sheet 5: Projections ----
+  const s5 = [['REACH & FREQUENCY PROJECTIONS'], ['Channel', 'Budget', 'Est. Impressions', 'Est. Reach', 'Key Projection', 'Value']];
+  state.channels.forEach(ch => {
+    const p = projCache[ch];
+    if (!p) return;
+    p.metrics.forEach((m, i) => {
+      s5.push([i === 0 ? channelConfig[ch].name : '', i === 0 ? (state.budgets[ch] || 0) : '', i === 0 ? p.impressions : '', i === 0 ? p.reach : '', m.label, m.value]);
+    });
+  });
+  const ws5 = XLSX.utils.aoa_to_sheet(s5);
+  ws5['!cols'] = [{ wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 16 }, { wch: 22 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, ws5, 'Projections');
+
+  XLSX.writeFile(wb, `${name.replace(/\s+/g,'_')}_Media_Plan.xlsx`);
+}
+
+// ===================== PPT EXPORT =====================
+async function exportPPT() {
+  const name = document.getElementById('f_name')?.value || 'Campaign';
+  const brand = document.getElementById('f_brand')?.value || '';
+  const totalBudget = getTotalBudget();
+  const weeks = getWeeks();
+  const obj = document.getElementById('f_objective');
+  const objText = obj?.options[obj.selectedIndex]?.text || '';
+  const audience = document.getElementById('f_audience')?.value || '';
+  const geo = document.getElementById('f_geo')?.value || '';
+  const start = document.getElementById('f_start')?.value || '';
+  const end = document.getElementById('f_end')?.value || '';
+  const today = new Date().toLocaleDateString('en-IN');
+  recalcProjections();
+
+  let totalImpr = 0, totalReach = 0;
+  state.channels.forEach(ch => { if (projCache[ch]) { totalImpr += projCache[ch].impressions || 0; totalReach += projCache[ch].reach || 0; } });
+
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_WIDE';
+  pptx.author = 'Media Plan Builder';
+  pptx.company = brand;
+  pptx.subject = `${name} Media Plan`;
+
+  const BG_DARK = '1a1a2e';
+  const BG_MED = '0f3460';
+  const GOLD = 'f5a623';
+  const WHITE = 'FFFFFF';
+  const LIGHT_GRAY = 'e0e4e8';
+  const TEXT_GRAY = '7f8c8d';
+  const RED = 'e94560';
+
+  // Helper
+  const addSlide = (bg) => { const s = pptx.addSlide(); if (bg) s.background = { color: bg }; return s; };
+
+  // ---- Slide 1: Cover ----
+  const s1 = addSlide(BG_DARK);
+  s1.addShape(pptx.ShapeType.rect, { x: 0, y: 5.8, w: 13.33, h: 1.7, fill: { color: RED } });
+  s1.addText(name, { x: 0.6, y: 1.8, w: 12, h: 1.4, fontSize: 40, bold: true, color: WHITE, fontFace: 'Segoe UI' });
+  s1.addText('MEDIA PLAN', { x: 0.6, y: 3.1, w: 6, h: 0.6, fontSize: 16, bold: true, color: GOLD, fontFace: 'Segoe UI' });
+  s1.addText([
+    { text: brand ? brand + '  ·  ' : '', options: { color: 'aaaaaa', fontSize: 13 } },
+    { text: objText + '  ·  ', options: { color: 'aaaaaa', fontSize: 13 } },
+    { text: `${weeks} weeks`, options: { color: GOLD, fontSize: 13, bold: true } },
+  ], { x: 0.6, y: 3.8, w: 10, h: 0.5, fontFace: 'Segoe UI' });
+  if (start) s1.addText(`${start}${end ? ' – ' + end : ''}`, { x: 0.6, y: 4.4, w: 8, h: 0.4, fontSize: 12, color: '888888', fontFace: 'Segoe UI' });
+  s1.addText(`Total Budget: ${fmtINR(totalBudget)}`, { x: 0.6, y: 6.0, w: 8, h: 0.5, fontSize: 16, bold: true, color: WHITE, fontFace: 'Segoe UI' });
+  s1.addText(`Prepared: ${today}`, { x: 0.6, y: 6.7, w: 8, h: 0.4, fontSize: 11, color: 'aaaaaa', fontFace: 'Segoe UI' });
+
+  // ---- Slide 2: Campaign Overview ----
+  const s2 = addSlide(WHITE);
+  s2.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 1.2, fill: { color: BG_DARK } });
+  s2.addText('Campaign Overview', { x: 0.4, y: 0.2, w: 12, h: 0.8, fontSize: 22, bold: true, color: WHITE, fontFace: 'Segoe UI' });
+  const overview = [
+    [{ text: 'Campaign', options: { bold: true, color: BG_MED } }, { text: name }],
+    [{ text: 'Brand', options: { bold: true, color: BG_MED } }, { text: brand || '—' }],
+    [{ text: 'Objective', options: { bold: true, color: BG_MED } }, { text: objText }],
+    [{ text: 'Target Audience', options: { bold: true, color: BG_MED } }, { text: audience || '—' }],
+    [{ text: 'Geography', options: { bold: true, color: BG_MED } }, { text: geo || '—' }],
+    [{ text: 'Flight Period', options: { bold: true, color: BG_MED } }, { text: `${start || '—'} to ${end || '—'} (${weeks} weeks)` }],
+    [{ text: 'Total Budget', options: { bold: true, color: BG_MED } }, { text: fmtINR(totalBudget) }],
+  ];
+  s2.addTable(overview, { x: 0.5, y: 1.5, w: 12, colW: [3, 9], rowH: 0.45, fontFace: 'Segoe UI', fontSize: 13, border: { type: 'solid', color: LIGHT_GRAY, pt: 0.5 } });
+
+  // ---- Slide 3: Budget Allocation ----
+  const s3 = addSlide(WHITE);
+  s3.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 1.2, fill: { color: BG_MED } });
+  s3.addText('Budget Allocation', { x: 0.4, y: 0.2, w: 12, h: 0.8, fontSize: 22, bold: true, color: WHITE, fontFace: 'Segoe UI' });
+  s3.addText(fmtINR(totalBudget), { x: 0.4, y: 1.4, w: 6, h: 0.6, fontSize: 28, bold: true, color: BG_DARK, fontFace: 'Segoe UI' });
+  s3.addText('Total Campaign Budget', { x: 0.4, y: 1.9, w: 6, h: 0.4, fontSize: 11, color: TEXT_GRAY, fontFace: 'Segoe UI' });
+
+  const budgetRows = [
+    [{ text: 'Channel', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Budget (₹)', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Share', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Active Weeks', options: { bold: true, color: WHITE, fill: BG_DARK } }],
+    ...state.channels.map(ch => {
+      const pct = totalBudget > 0 ? Math.round((state.budgets[ch] || 0) / totalBudget * 100) : 0;
+      return [
+        { text: `${channelConfig[ch].icon} ${channelConfig[ch].name}`, options: { bold: true } },
+        { text: `₹${(state.budgets[ch] || 0).toLocaleString('en-IN')}` },
+        { text: `${pct}%`, options: { bold: true, color: BG_MED } },
+        { text: `${countActiveWeeks(ch)} of ${weeks}` }
+      ];
+    }),
+  ];
+  s3.addTable(budgetRows, { x: 0.4, y: 2.5, w: 12.4, colW: [3, 3.5, 2.5, 3.4], rowH: 0.45, fontFace: 'Segoe UI', fontSize: 12, border: { type: 'solid', color: LIGHT_GRAY, pt: 0.5 } });
+
+  // ---- Slide 4: Flighting Calendar ----
+  const s4 = addSlide(WHITE);
+  s4.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 1.2, fill: { color: BG_DARK } });
+  s4.addText('Flighting Calendar', { x: 0.4, y: 0.2, w: 12, h: 0.8, fontSize: 22, bold: true, color: WHITE, fontFace: 'Segoe UI' });
+  const showWeeks = Math.min(weeks, 16);
+  const wCols = [2.2, ...Array(showWeeks).fill(parseFloat(((13.33 - 2.5) / showWeeks).toFixed(2)))];
+  const flightHeaders = [{ text: 'Channel', options: { bold: true, color: WHITE, fill: BG_DARK } }, ...Array.from({ length: showWeeks }, (_, i) => ({ text: `W${i+1}`, options: { bold: true, color: WHITE, fill: BG_DARK, fontSize: 9 } }))];
+  const flightRows = [flightHeaders,
+    ...state.channels.map(ch => {
+      const cfg = channelConfig[ch];
+      const budget = state.budgets[ch] || 0;
+      const activeCount = countActiveWeeks(ch) || 1;
+      const wkBudget = Math.round(budget / activeCount);
+      return [
+        { text: `${cfg.icon} ${cfg.name}`, options: { bold: true, fontSize: 10 } },
+        ...Array.from({ length: showWeeks }, (_, w) => {
+          const active = (state.flighting[ch] || [])[w];
+          return { text: active ? fmtINR(wkBudget) : '', options: { fill: active ? cfg.color.replace('#','') : 'f0f2f5', color: active ? WHITE : 'cccccc', fontSize: 8, bold: active } };
+        }),
+      ];
+    })
+  ];
+  s4.addTable(flightRows, { x: 0.2, y: 1.4, w: 12.9, colW: wCols, rowH: 0.46, fontFace: 'Segoe UI', fontSize: 10, border: { type: 'solid', color: LIGHT_GRAY, pt: 0.3 } });
+
+  // ---- Slide 5: Projections ----
+  const s5 = addSlide(WHITE);
+  s5.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 1.2, fill: { color: BG_MED } });
+  s5.addText('Reach & Frequency Projections', { x: 0.4, y: 0.2, w: 12, h: 0.8, fontSize: 22, bold: true, color: WHITE, fontFace: 'Segoe UI' });
+  const projRows = [
+    [{ text: 'Channel', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Budget', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Est. Impressions', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Est. Reach', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Key Metric 1', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Key Metric 2', options: { bold: true, color: WHITE, fill: BG_DARK } }],
+    ...state.channels.map(ch => {
+      const p = projCache[ch];
+      const cfg = channelConfig[ch];
+      return [
+        { text: `${cfg.icon} ${cfg.name}`, options: { bold: true } },
+        { text: fmtINR(state.budgets[ch] || 0) },
+        { text: p ? fmtNum(p.impressions) : '—' },
+        { text: p ? fmtNum(p.reach) : '—' },
+        { text: p?.metrics?.[2]?.label ? `${p.metrics[2].label}: ${p.metrics[2].value}` : '—', options: { fontSize: 10 } },
+        { text: p?.metrics?.[3]?.label ? `${p.metrics[3].label}: ${p.metrics[3].value}` : '—', options: { fontSize: 10 } },
+      ];
+    }),
+  ];
+  s5.addTable(projRows, { x: 0.4, y: 1.4, w: 12.5, colW: [2, 2, 2.2, 2, 2.3, 2], rowH: 0.5, fontFace: 'Segoe UI', fontSize: 11, border: { type: 'solid', color: LIGHT_GRAY, pt: 0.5 } });
+  // Total reach callout
+  s5.addShape(pptx.ShapeType.rect, { x: 0.4, y: 5.5, w: 5.5, h: 1.5, fill: { color: BG_DARK }, line: { color: BG_DARK } });
+  s5.addText([{ text: fmtNum(totalReach) + '\n', options: { fontSize: 28, bold: true, color: GOLD } }, { text: 'Est. Total Reach', options: { fontSize: 11, color: 'aaaaaa' } }], { x: 0.5, y: 5.55, w: 5.3, h: 1.3, valign: 'middle', fontFace: 'Segoe UI' });
+  s5.addShape(pptx.ShapeType.rect, { x: 6.5, y: 5.5, w: 5.5, h: 1.5, fill: { color: BG_MED }, line: { color: BG_MED } });
+  s5.addText([{ text: fmtNum(totalImpr) + '\n', options: { fontSize: 28, bold: true, color: WHITE } }, { text: 'Est. Total Impressions', options: { fontSize: 11, color: 'aaaaaa' } }], { x: 6.6, y: 5.55, w: 5.3, h: 1.3, valign: 'middle', fontFace: 'Segoe UI' });
+
+  // ---- Slide 6: KPI Targets ----
+  const s6 = addSlide(WHITE);
+  s6.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 1.2, fill: { color: BG_DARK } });
+  s6.addText('KPI Targets by Channel', { x: 0.4, y: 0.2, w: 12, h: 0.8, fontSize: 22, bold: true, color: WHITE, fontFace: 'Segoe UI' });
+  const kpiRows = [
+    [{ text: 'Channel', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'KPI', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Target', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Unit', options: { bold: true, color: WHITE, fill: BG_DARK } },
+     { text: 'Benchmark', options: { bold: true, color: WHITE, fill: BG_DARK } }],
+  ];
+  state.channels.forEach(ch => {
+    const defs = kpiDefs[ch] || [];
+    const bench = getBench(ch);
+    defs.forEach((k, i) => {
+      kpiRows.push([
+        i === 0 ? { text: `${channelConfig[ch].icon} ${channelConfig[ch].name}`, options: { bold: true, rowspan: defs.length } } : { text: '' },
+        { text: k.label },
+        { text: String(state.kpis[`${ch}_${k.id}`] ?? bench[k.bench_key] ?? '—'), options: { bold: true, color: BG_MED } },
+        { text: k.unit, options: { color: TEXT_GRAY } },
+        { text: String(bench[k.bench_key] ?? '—'), options: { color: TEXT_GRAY, fontSize: 10 } },
+      ]);
+    });
+  });
+  s6.addTable(kpiRows, { x: 0.4, y: 1.4, w: 12.5, colW: [2.5, 3.5, 2, 1.5, 3], rowH: 0.4, fontFace: 'Segoe UI', fontSize: 11, border: { type: 'solid', color: LIGHT_GRAY, pt: 0.5 } });
+
+  // ---- Slide 7: Channel Strategy ----
+  const s7 = addSlide(WHITE);
+  s7.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 1.2, fill: { color: BG_MED } });
+  s7.addText('Channel Strategy Rationale', { x: 0.4, y: 0.2, w: 12, h: 0.8, fontSize: 22, bold: true, color: WHITE, fontFace: 'Segoe UI' });
+  const rationale = { digital:'Primary performance & reach channel. Precise audience targeting, always-on with burst phases for key moments.', email:'High-ROI owned CRM channel. Ideal for re-engagement, retention, and conversion of warm audiences.', tv:'Mass-reach brand awareness channel. Drives brand recall and consideration at scale during key flighting windows.', ooh:'Non-skippable, high-frequency outdoor media. Reinforces brand messaging in key markets with premium placements.', print:'Credibility and reach within target reader demographics. Supports brand authority in regulated or premium categories.', influencer:'Authentic social proof and earned reach. Activates targeted communities with creator-driven content.' };
+  let yPos = 1.45;
+  state.channels.forEach(ch => {
+    const cfg = channelConfig[ch];
+    const budget = state.budgets[ch] || 0;
+    const pct = totalBudget > 0 ? Math.round((budget / totalBudget) * 100) : 0;
+    s7.addShape(pptx.ShapeType.rect, { x: 0.3, y: yPos, w: 12.7, h: 0.72, fill: { color: 'f8f9fa' }, line: { color: LIGHT_GRAY, pt: 0.5 } });
+    s7.addText(`${cfg.icon} ${cfg.name}`, { x: 0.5, y: yPos + 0.05, w: 2.2, h: 0.35, fontSize: 12, bold: true, color: BG_DARK, fontFace: 'Segoe UI' });
+    s7.addText(`${fmtINR(budget)} · ${pct}%`, { x: 0.5, y: yPos + 0.36, w: 2.2, h: 0.28, fontSize: 10, color: BG_MED, bold: true, fontFace: 'Segoe UI' });
+    s7.addText(rationale[ch] || '', { x: 2.9, y: yPos + 0.1, w: 9.8, h: 0.52, fontSize: 10.5, color: '2c3e50', fontFace: 'Segoe UI', valign: 'middle' });
+    yPos += 0.8;
+  });
+
+  // ---- Slide 8: Sign-off ----
+  const s8 = addSlide(BG_DARK);
+  s8.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 1.1, fill: { color: RED } });
+  s8.addText('Approval & Next Steps', { x: 0.4, y: 0.15, w: 12, h: 0.8, fontSize: 22, bold: true, color: WHITE, fontFace: 'Segoe UI' });
+  const signoffRows = [
+    [{ text: 'Role', options: { bold: true, color: WHITE, fill: BG_MED } }, { text: 'Name', options: { bold: true, color: WHITE, fill: BG_MED } }, { text: 'Decision', options: { bold: true, color: WHITE, fill: BG_MED } }, { text: 'Date', options: { bold: true, color: WHITE, fill: BG_MED } }],
+    [{ text: 'Brand Manager', options: { color: WHITE } }, { text: '', options: { color: WHITE } }, { text: '', options: { color: WHITE } }, { text: '', options: { color: WHITE } }],
+    [{ text: 'Marketing Head', options: { color: WHITE } }, { text: '', options: { color: WHITE } }, { text: '', options: { color: WHITE } }, { text: '', options: { color: WHITE } }],
+    [{ text: 'Media Agency Lead', options: { color: WHITE } }, { text: '', options: { color: WHITE } }, { text: '', options: { color: WHITE } }, { text: '', options: { color: WHITE } }],
+    [{ text: 'Finance / Procurement', options: { color: WHITE } }, { text: '', options: { color: WHITE } }, { text: '', options: { color: WHITE } }, { text: '', options: { color: WHITE } }],
+  ];
+  s8.addTable(signoffRows, { x: 0.5, y: 1.4, w: 12.3, colW: [3.5, 3.5, 2.8, 2.5], rowH: 0.6, fontFace: 'Segoe UI', fontSize: 12, border: { type: 'solid', color: '444466', pt: 0.5 } });
+  s8.addText([{ text: `${name} Media Plan  `, options: { bold: true, color: WHITE } }, { text: '·  ' + today, options: { color: 'aaaaaa' } }], { x: 0.5, y: 6.9, w: 12, h: 0.4, fontSize: 11, fontFace: 'Segoe UI' });
+
+  await pptx.writeFile({ fileName: `${name.replace(/\s+/g,'_')}_Media_Plan.pptx` });
+}
+
+// ===================== RESET =====================
+function resetAll() {
+  if (!confirm('Reset all plan data?')) return;
+  state.channels = ['digital'];
+  state.budgets = {};
+  state.flighting = {};
+  state.kpis = {};
+  document.querySelectorAll('input, select').forEach(el => { if (el.type !== 'range') el.value = ''; });
+  document.getElementById('f_weeks').value = 8;
+  document.querySelectorAll('.ch-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('ch-card-digital').classList.add('selected');
+  renderSliders();
+  renderFlighting();
+  updateSidebar();
+  if (donutChart) { donutChart.destroy(); donutChart = null; }
+  goStep(1);
+}
+
+// ===================== INIT =====================
+function init() {
+  renderSliders();
+  renderFlighting();
+  updateSidebar();
+  renderMemoryPanel();
+  // Set today's date defaults
+  const today = new Date();
+  const nextMonth = new Date(today); nextMonth.setMonth(nextMonth.getMonth() + 2);
+  document.getElementById('f_start').value = today.toISOString().split('T')[0];
+  document.getElementById('f_end').value = nextMonth.toISOString().split('T')[0];
+  calcWeeks();
+}
+init();
+</script>
+</body>
+</html>
